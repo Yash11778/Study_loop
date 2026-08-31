@@ -5,7 +5,6 @@ import Link from "next/link";
 import { BAND_LABEL, type ResultDto } from "@study-loop/shared";
 import { AppShell } from "@/components/AppShell";
 import { Markdown } from "@/components/Markdown";
-import { Button } from "@/components/ui/Button";
 import { Callout } from "@/components/ui/Callout";
 import { Loading } from "@/components/ui/Loading";
 import { MasteryBar } from "@/components/ui/MasteryBar";
@@ -19,31 +18,13 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
 
   const [result, setResult] = useState<ResultDto | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [emailing, setEmailing] = useState(false);
-  const [emailed, setEmailed] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     api.getResult(id)
-      .then((r) => {
-        setResult(r);
-        setEmailed(r.emailStatus === "sent" || r.emailStatus === "delivered");
-      })
+      .then(setResult)
       .catch((err) => setError(err instanceof ApiRequestError ? err.message : "Could not load this result."));
   }, [user, id]);
-
-  async function sendEmail() {
-    setEmailing(true);
-    setError(null);
-    try {
-      await api.emailResult(id);
-      setEmailed(true);
-    } catch (err) {
-      setError(err instanceof ApiRequestError ? err.message : "Could not send the email.");
-    } finally {
-      setEmailing(false);
-    }
-  }
 
   if (loading || !user) return <AppShell><Loading label="Loading your account" /></AppShell>;
   if (error && !result) {
@@ -75,15 +56,6 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              {emailed ? (
-                <span className="rounded-lg border border-white/20 px-4 py-2.5 text-sm text-white/70">
-                  Sent to {user.email}
-                </span>
-              ) : (
-                <Button variant="secondary" size="lg" onClick={() => void sendEmail()} loading={emailing}>
-                  {emailing ? "Sending" : "Email me this result"}
-                </Button>
-              )}
               <Link
                 href="/study"
                 className="rounded-lg bg-accent px-6 py-3 font-display font-semibold text-white transition-colors hover:bg-[#0c586a]"
