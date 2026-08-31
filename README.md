@@ -103,7 +103,14 @@ real Groq and Gemini calls, so they cost quota and take a couple of minutes.
 
 ## Authentication
 
-Two factors, in order:
+**The emailed code is off by default.** `REQUIRE_EMAIL_CODE=false` means a
+password alone establishes the session, so any student can sign up immediately.
+That is a deliberate trade: with a shared sending domain the provider delivers
+only to the account owner, so requiring a code would lock out everyone else.
+Set `REQUIRE_EMAIL_CODE=true` on the API once `RESEND_FROM` uses a domain you
+have verified -- the whole code path is still present and tested, just bypassed.
+
+With it on, two factors, in order:
 
 1. **`POST /api/auth/register`** or **`/login`** — email and password. Passwords
    are `scrypt` hashes (Node's standard library, so there is no native module to

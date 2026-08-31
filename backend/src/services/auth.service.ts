@@ -120,6 +120,21 @@ export async function issueCode(rawEmail: string): Promise<RequestCodeOutcome> {
  * here -- the caller must complete the emailed code first, so an unverified
  * address can never reach the app.
  */
+/**
+ * Marks the address confirmed and hands back the user, for the path where no
+ * emailed code is required. Kept separate from verifyLoginCode so the two ways
+ * of establishing a session stay visibly distinct.
+ */
+async function completeWithoutCode(email: string) {
+  const user = await User.findOneAndUpdate(
+    { email },
+    { $set: { lastLoginAt: new Date(), emailVerifiedAt: new Date() } },
+    { returnDocument: "after" }
+  );
+  if (!user) throw new AppError(500, "internal_error", "Could not load your account.");
+  return user;
+}
+
 export async function register(rawEmail: string, password: string) {
   const email = rawEmail.trim().toLowerCase();
 
@@ -132,13 +147,18 @@ export async function register(rawEmail: string, password: string) {
     if (!existing.emailVerifiedAt) {
       existing.passwordHash = await hashPassword(password);
       await existing.save();
-      return issueCode(email);
+      return env.REQUIRE_EMAIL_CODE
+        ? { requiresCode: true as const, ...(await issueCode(email)) }
+        : { requiresCode: false as const, user: await completeWithoutCode(email) };
     }
     throw conflict("An account with that email already exists. Sign in instead.");
   }
 
   await User.create({ email, passwordHash: await hashPassword(password) });
-  return issueCode(email);
+
+  return env.REQUIRE_EMAIL_CODE
+    ? { requiresCode: true as const, ...(await issueCode(email)) }
+    : { requiresCode: false as const, user: await completeWithoutCode(email) };
 }
 
 /**
@@ -164,7 +184,9 @@ export async function login(rawEmail: string, password: string) {
 
   if (!(await verifyPassword(password, user.passwordHash))) throw rejected();
 
-  return issueCode(email);
+  return env.REQUIRE_EMAIL_CODE
+    ? { requiresCode: true as const, ...(await issueCode(email)) }
+    : { requiresCode: false as const, user: await completeWithoutCode(email) };
 }
 
 /**

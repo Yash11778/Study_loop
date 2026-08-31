@@ -1,7 +1,7 @@
 import type {
   MeDto,
   ProgressDto,
-  RequestCodeResponse,
+  CredentialsResponse,
   NoteDto,
   OnboardingRequest,
   QuizDto,
@@ -18,10 +18,10 @@ import { apiFetch } from "./api-client";
  */
 export const api = {
   register: (email: string, password: string) =>
-    apiFetch<RequestCodeResponse>("/api/auth/register", { method: "POST", body: { email, password } }),
+    apiFetch<CredentialsResponse>("/api/auth/register", { method: "POST", body: { email, password } }),
 
   login: (email: string, password: string) =>
-    apiFetch<RequestCodeResponse>("/api/auth/login", { method: "POST", body: { email, password } }),
+    apiFetch<CredentialsResponse>("/api/auth/login", { method: "POST", body: { email, password } }),
 
   verifyCode: (email: string, code: string) =>
     apiFetch<{ token: string; onboarded: boolean }>("/api/auth/verify", {

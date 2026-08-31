@@ -47,6 +47,18 @@ export default function SignInPage() {
     setError(null);
     try {
       const res = mode === "signup" ? await api.register(email, password) : await api.login(email, password);
+
+      // The server decides whether a code is needed; the form follows. When
+      // verification is off the password alone has already established the
+      // session, so go straight in rather than showing a step that would sit
+      // there waiting for a code nobody sent.
+      if (!res.requiresCode) {
+        setSessionHint(true);
+        await refresh();
+        router.replace(res.onboarded ? "/study" : "/onboarding");
+        return;
+      }
+
       setDevCode(res.devCode ?? null);
       if (res.devCode) setCode(res.devCode);
       setStep("code");
@@ -129,8 +141,8 @@ export default function SignInPage() {
                 </h2>
                 <p className="mt-1 text-sm text-muted">
                   {mode === "signup"
-                    ? "We'll email a code to confirm the address before you start."
-                    : "We'll email a code after your password checks out."}
+                    ? "Pick a password you'll remember. You can start straight away."
+                    : "Welcome back."}
                 </p>
               </div>
 

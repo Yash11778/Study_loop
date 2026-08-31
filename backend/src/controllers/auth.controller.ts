@@ -13,36 +13,54 @@ import { asyncHandler } from "@/utils/async-handler";
 import { unauthorized } from "@/utils/errors";
 
 /**
- * Step one of sign-up: create the account, then send a code. No session comes
- * back -- the address has to be proven first.
+ * Establishes the session when no emailed code is required, or reports that one
+ * was sent when it is. Both paths verify the password first.
  */
+async function finish(
+  res: Response,
+  outcome:
+    | { requiresCode: true; delivered: boolean; devCode?: string }
+    | { requiresCode: false; user: { _id: unknown; profile?: { completedAt?: Date | null } | null } },
+  status: number
+) {
+  if (outcome.requiresCode) {
+    return res.status(status).json({
+      ok: true,
+      requiresCode: true,
+      delivered: outcome.delivered,
+      // Development only, and only when the provider refused the address.
+      ...(outcome.devCode ? { devCode: outcome.devCode } : {}),
+    });
+  }
+
+  const token = await issueSessionToken(String(outcome.user._id));
+  res.cookie(SESSION_COOKIE, token, sessionCookieOptions);
+
+  return res.status(status).json({
+    ok: true,
+    requiresCode: false,
+    token,
+    onboarded: Boolean(outcome.user.profile?.completedAt),
+  });
+}
+
+/** Creates the account. Issues the session unless a code is required first. */
 export const postRegister = asyncHandler(async (req: Request, res: Response) => {
   const { email, password } = validated<CredentialsRequest>(req);
-  const outcome = await register(email, password);
+  await finish(res, await register(email, password), 201);
+});
 
-  res.status(201).json({
-    ok: true,
-    delivered: outcome.delivered,
-    // Development only, and only when the provider refused the address.
-    ...(outcome.devCode ? { devCode: outcome.devCode } : {}),
-  });
+/** Checks the password. Issues the session unless a code is required first. */
+export const postLogin = asyncHandler(async (req: Request, res: Response) => {
+  const { email, password } = validated<CredentialsRequest>(req);
+  await finish(res, await login(email, password), 200);
 });
 
 /**
- * Step one of sign-in: check the password, then send a code. A correct password
- * on its own still yields no session.
+ * Exchanges a valid emailed code for a session. Only reachable when
+ * REQUIRE_EMAIL_CODE is on; the route stays mounted either way so turning the
+ * flag back on needs no redeploy of the frontend.
  */
-export const postLogin = asyncHandler(async (req: Request, res: Response) => {
-  const { email, password } = validated<CredentialsRequest>(req);
-  const outcome = await login(email, password);
-
-  res.json({
-    ok: true,
-    delivered: outcome.delivered,
-    ...(outcome.devCode ? { devCode: outcome.devCode } : {}),
-  });
-});
-
 export const verifyCode = asyncHandler(async (req: Request, res: Response) => {
   const { email, code } = validated<VerifyCodeRequest>(req);
 

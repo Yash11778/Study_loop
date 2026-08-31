@@ -38,13 +38,27 @@ export const verifyCodeRequest = z.object({
 });
 export type VerifyCodeRequest = z.infer<typeof verifyCodeRequest>;
 
-export const requestCodeResponse = z.object({
-  ok: z.literal(true),
-  delivered: z.boolean(),
-  /** Development only, and only when the provider refused the address. */
-  devCode: z.string().optional(),
-});
-export type RequestCodeResponse = z.infer<typeof requestCodeResponse>;
+/**
+ * Register and login answer with one of two shapes, discriminated by
+ * requiresCode: either the session is already established, or a code was sent
+ * and the client must collect it.
+ */
+export const credentialsResponse = z.discriminatedUnion("requiresCode", [
+  z.object({
+    ok: z.literal(true),
+    requiresCode: z.literal(false),
+    token: z.string(),
+    onboarded: z.boolean(),
+  }),
+  z.object({
+    ok: z.literal(true),
+    requiresCode: z.literal(true),
+    delivered: z.boolean(),
+    /** Development only, and only when the provider refused the address. */
+    devCode: z.string().optional(),
+  }),
+]);
+export type CredentialsResponse = z.infer<typeof credentialsResponse>;
 
 export const meDto = z.object({
   id: objectId,

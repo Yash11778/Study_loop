@@ -13,6 +13,19 @@ const schema = z.object({
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
   MONGODB_DB: z.string().default("study_loop"),
 
+  /**
+   * Whether sign-in requires the emailed six-digit code.
+   *
+   * Off by default, because it can only work once mail actually reaches the
+   * student -- and a shared sending domain delivers to the account owner alone,
+   * which would lock every other user out entirely. Turn it on once you have a
+   * verified sender: the whole code path is still here, just bypassed.
+   */
+  REQUIRE_EMAIL_CODE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+
   /** Signs session cookies. openssl rand -base64 32 */
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
   /** Where the browser app lives; used for links inside emails. */
