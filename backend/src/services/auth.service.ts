@@ -35,7 +35,11 @@ export async function hashPassword(password: string): Promise<string> {
   return `${salt}:${derived.toString("hex")}`;
 }
 
-export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+export async function verifyPassword(password: string, stored: string | undefined | null): Promise<boolean> {
+  // Accounts created before passwords existed have no hash at all. Splitting
+  // undefined threw, which surfaced as a 500 on sign-in rather than a refusal.
+  if (!stored) return false;
+
   const [salt, key] = stored.split(":");
   if (!salt || !key) return false;
 
@@ -144,7 +148,14 @@ export async function register(rawEmail: string, password: string) {
     // An account that never completed verification is not usable by anyone, so
     // re-registering replaces its password rather than being refused -- which
     // would otherwise strand the address forever on a mistyped password.
-    if (!existing.emailVerifiedAt) {
+    /**
+     * Adopt an account that has no password: one created before passwords
+     * existed, which nobody can currently sign into. Refusing with "already
+     * exists" while login also refuses would strand the address permanently.
+     * Its sessions, quizzes and results are all keyed to the user id, so they
+     * survive.
+     */
+    if (!existing.passwordHash || !existing.emailVerifiedAt) {
       existing.passwordHash = await hashPassword(password);
       await existing.save();
       return env.REQUIRE_EMAIL_CODE
@@ -180,6 +191,18 @@ export async function login(rawEmail: string, password: string) {
     // reveal whether the address exists.
     await hashPassword(password);
     throw rejected();
+  }
+
+  /**
+   * An account with no password predates the password login. It cannot be
+   * signed into, and a generic refusal would leave the owner retyping a
+   * password that never existed -- so say what will actually work.
+   */
+  if (!user.passwordHash) {
+    throw badRequest(
+      "This account was created before passwords. Use \u201cCreate an account\u201d with " +
+        "this same email to set one -- your progress is kept."
+    );
   }
 
   if (!(await verifyPassword(password, user.passwordHash))) throw rejected();
