@@ -34,6 +34,16 @@ const schema = z.object({
   GROQ_API_KEY: z.string().min(1, "GROQ_API_KEY is required"),
   GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
 
+  /**
+   * Overrides the Gemini chat model without a redeploy.
+   *
+   * Google retires these on its own schedule and per-project: a model that
+   * works on one key can answer "no longer available to new users" on another.
+   * When that happens the fix should be an environment change, not a code
+   * change and a rebuild. Run `npm run doctor` to see what a key can reach.
+   */
+  GEMINI_MODEL: z.string().optional(),
+
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM: z.string().default("Study Loop <onboarding@resend.dev>"),
 

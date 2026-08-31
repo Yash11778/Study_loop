@@ -12,6 +12,14 @@ import { loadSession } from "./qna.service";
 import { forbidden, notFound } from "@/utils/errors";
 import { logger } from "@/utils/logger";
 
+/**
+ * Groq's free tier allows 8,000 tokens per minute and counts max_tokens as
+ * reserved whether or not they are used. Eight passages is roughly 2,800
+ * tokens; with the prompt and the ceiling below that leaves comfortable
+ * headroom under the cap.
+ */
+const MAX_PASSAGES = 8;
+
 const generatedSchema = z.object({
   questions: z
     .array(
@@ -61,18 +69,36 @@ export async function createQuiz(sessionId: string, userId: Types.ObjectId): Pro
    * the providers' per-minute token budget, and most of it would be irrelevant
    * to the ten questions being asked for anyway.
    */
-  const wantedOrdinals = new Set(
-    blueprint.flatMap((b) => note.concepts.find((c) => c.slug === b.conceptSlug)?.chunkOrdinals ?? [])
-  );
+  /**
+   * Take a bounded number of passages, richest concepts first.
+   *
+   * Sending every passage for every blueprint concept came to roughly 24 chunks
+   * once the corpus grew, and the request then exceeded Groq's 8,000
+   * tokens-per-minute ceiling outright -- so quiz generation failed on the
+   * primary provider every single time and leaned entirely on the fallback.
+   * Concepts carrying more questions contribute their passages first, so the
+   * budget is spent where the quiz actually needs grounding.
+   */
+  const ranked = [...blueprint].sort((a, b) => b.questionCount - a.questionCount);
+  const wantedOrdinals: number[] = [];
+
+  for (const entry of ranked) {
+    const ordinals = note.concepts.find((c) => c.slug === entry.conceptSlug)?.chunkOrdinals ?? [];
+    for (const ordinal of ordinals) {
+      if (wantedOrdinals.length >= MAX_PASSAGES) break;
+      if (!wantedOrdinals.includes(ordinal)) wantedOrdinals.push(ordinal);
+    }
+  }
 
   const chunks = await NoteChunk.find(
-    // An empty set would match nothing, so fall back to the whole note.
-    wantedOrdinals.size > 0
-      ? { noteId: note._id, ordinal: { $in: [...wantedOrdinals] } }
+    // An empty set would match nothing, so fall back to the start of the note.
+    wantedOrdinals.length > 0
+      ? { noteId: note._id, ordinal: { $in: wantedOrdinals } }
       : { noteId: note._id },
     { ordinal: 1, content: 1 }
   )
     .sort({ ordinal: 1 })
+    .limit(MAX_PASSAGES)
     .lean();
 
   logger.info(
@@ -88,12 +114,10 @@ export async function createQuiz(sessionId: string, userId: Types.ObjectId): Pro
     task: "quiz.generate",
     schema: generatedSchema,
     temperature: 0.5,
-    // Ten questions measure at ~1,200 output tokens, so 2,500 is already double
-    // what is used. It is deliberately no higher: Groq reserves max_tokens
-    // against a per-minute budget whether or not they are spent, so an inflated
-    // ceiling costs real throughput and gets the request rejected outright when
-    // a few Q&A turns have just run -- which is exactly when a quiz is asked for.
-    maxTokens: 2500,
+    // Ten questions measure at ~1,200 output tokens. Reserved against the same
+    // per-minute budget as the prompt, so every token above what is actually
+    // used is throughput thrown away.
+    maxTokens: 1800,
     userId: String(userId),
     system:
       "You write multiple-choice physics questions for first-year undergraduates.\n" +

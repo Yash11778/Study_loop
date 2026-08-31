@@ -10,7 +10,9 @@ export const MODELS = {
     fast: "openai/gpt-oss-120b",
   },
   gemini: {
-    reasoning: "gemini-2.5-flash",
+    // Overridable via GEMINI_MODEL -- Google retires these per-project, so a
+    // deprecation should be an env change rather than a rebuild.
+    reasoning: process.env.GEMINI_MODEL || "gemini-2.5-flash",
     embedding: "gemini-embedding-001",
   },
 } as const;
