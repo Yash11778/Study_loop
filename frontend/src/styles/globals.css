@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #eef1f5;
+  --color-surface: #ffffff;
+  --color-sunk: #e4e8ee;
+  --color-ink: #131c28;
+  --color-ink-soft: #33445a;
+  --color-muted: #66768b;
+  --color-line: #d8dee7;
+  --color-accent: #0f6b80;
+  --color-accent-soft: #e0eff2;
+  --color-good: #1f7a4d;
+  --color-good-soft: #e2f1e9;
+  --color-warn: #a8631a;
+  --color-warn-soft: #f7ecdc;
+  --color-crit: #a32f3d;
+  --color-crit-soft: #f8e3e5;
+
+  --font-display: "Chivo", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Source Serif 4", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root { color-scheme: light; }
+
+html, body { height: 100%; }
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, button, label, th { font-family: var(--font-display); }
+
+/* Slim scrollbars so the split panes don't gain heavy gutters. */
+.scroll-pane { scrollbar-width: thin; scrollbar-color: var(--color-line) transparent; }
+.scroll-pane::-webkit-scrollbar { width: 10px; }
+.scroll-pane::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 99px; border: 3px solid transparent; background-clip: content-box; }
+
+@keyframes pulse-dot { 0%, 80%, 100% { opacity: .25 } 40% { opacity: 1 } }
+.dot { animation: pulse-dot 1.2s infinite; }
+.dot:nth-child(2) { animation-delay: .15s }
+.dot:nth-child(3) { animation-delay: .3s }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

@@ -1,0 +1,49 @@
+# Render blueprint for the API.
+#
+# If your git repository root is the folder ABOVE this one, set the service's
+# "Root Directory" to `project` in the Render dashboard so these paths resolve.
+services:
+  - type: web
+    name: study-loop-api
+    runtime: node
+    plan: free
+    # npm ci needs the lockfile at the workspace root, which is where this runs.
+    buildCommand: npm ci && npm run build:render
+    startCommand: node backend/dist/server.js
+    # Render restarts the instance if this stops returning 200, and the check
+    # also keeps the free instance from idling quite as aggressively.
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      # Render supplies PORT; the app reads it rather than hardcoding 4000.
+      - key: PORT
+        value: "10000"
+      # Must be the exact Vercel origin, no trailing slash. credentials:true
+      # forbids a wildcard, so a mismatch here breaks sign-in with a CORS error.
+      - key: CORS_ORIGINS
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB
+        value: study_loop
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: CRON_SECRET
+        generateValue: true
