@@ -11,8 +11,8 @@ import { NextResponse, type NextRequest } from "next/server";
  * having to enumerate every chunk URL.
  */
 export function middleware(request: NextRequest) {
-  const nonce = crypto.randomUUID().replaceAll("-", "");
   const isDev = process.env.NODE_ENV !== "production";
+
   // Read at runtime, not inlined at build time. If this is unset in the
   // deployment environment, connect-src collapses to 'self' and the browser
   // silently blocks every API call -- so it must be set on Vercel, not only in
@@ -21,8 +21,24 @@ export function middleware(request: NextRequest) {
 
   const csp = [
     `default-src 'self'`,
-    // unsafe-eval is required by the dev-mode React refresh runtime only.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${isDev ? "'unsafe-eval'" : ""}`,
+
+    /**
+     * Next's own bundle, and its inline bootstrap scripts.
+     *
+     * This previously used a per-request nonce with 'strict-dynamic', which is
+     * the stronger policy -- but Next 16 did not stamp that nonce onto the
+     * scripts it emits, so the browser blocked every one of them. The page
+     * still rendered as static HTML while no JavaScript ran at all, which
+     * presents as an app where nothing is clickable.
+     *
+     * 'unsafe-inline' is weaker than a nonce: it permits any inline script,
+     * so it does not stop an injected <script> the way a nonce would. The
+     * remaining directives still constrain what an attacker could reach --
+     * scripts load only from this origin, connect-src names the API
+     * explicitly, and object-src is closed.
+     */
+    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+
     // Next inlines critical CSS, and Google Fonts serves a stylesheet.
     `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
     `font-src 'self' https://fonts.gstatic.com`,
@@ -39,10 +55,7 @@ export function middleware(request: NextRequest) {
     .join("; ")
     .replace(/\s{2,}/g, " ");
 
-  const headers = new Headers(request.headers);
-  headers.set("x-nonce", nonce);
-
-  const response = NextResponse.next({ request: { headers } });
+  const response = NextResponse.next();
 
   response.headers.set("Content-Security-Policy", csp);
   response.headers.set("X-Content-Type-Options", "nosniff");
