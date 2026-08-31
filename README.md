@@ -205,6 +205,11 @@ flips it — do not unset it.
 `CORS_ORIGINS` must be the exact origin. A trailing slash breaks it, and the
 symptom is a sign-in that fails with a CORS error rather than a 401.
 
+**`npm ci` drops the compilers under `NODE_ENV=production`.** npm omits
+devDependencies when that is set, and `tsup`/`typescript` are dev dependencies,
+so the build fails with `tsup: not found` (exit 127). The build command must be
+`npm ci --include=dev && npm run build:render`.
+
 **Render's free tier sleeps.** After ~15 minutes idle the instance spins down
 and the next request takes ~50 seconds. The health check path slows that down
 but does not prevent it. It is the single most common "the app is broken"

@@ -7,8 +7,10 @@ services:
     name: study-loop-api
     runtime: node
     plan: free
-    # npm ci needs the lockfile at the workspace root, which is where this runs.
-    buildCommand: npm ci && npm run build:render
+    # --include=dev is required: NODE_ENV=production makes npm omit
+    # devDependencies, and the compilers live there (tsup, typescript). Without
+    # it the install succeeds and the build then dies with "tsup: not found".
+    buildCommand: npm ci --include=dev && npm run build:render
     startCommand: node backend/dist/server.js
     # Render restarts the instance if this stops returning 200, and the check
     # also keeps the free instance from idling quite as aggressively.
