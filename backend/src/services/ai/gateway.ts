@@ -70,9 +70,15 @@ export async function generate<T>({
   for (const [index, provider] of chain.entries()) {
     const fellBack = index > 0;
 
-    // One repair attempt on the leading provider; none on the fallback, which
-    // is already the expensive path.
-    const attempts = fellBack ? 1 : 2;
+    /**
+     * Two repair attempts on the leading provider, one on the fallback.
+     *
+     * A single retry was too thin: JSON-mode generations fail often enough that
+     * one bad reply escalated to the fallback, and when that provider is out of
+     * quota the whole request 503s over something a second attempt would have
+     * fixed.
+     */
+    const attempts = fellBack ? 2 : 3;
     let repairHint = "";
 
     for (let attempt = 0; attempt < attempts; attempt++) {
@@ -176,7 +182,18 @@ export async function generate<T>({
           "provider call failed"
         );
 
-        // Transport failures are not repairable -- escalate immediately.
+        /**
+         * A bad generation is worth asking the same provider to redo; a
+         * transport failure is not, and escalating is the only useful move.
+         */
+        if (err instanceof ProviderError && err.reason === "invalid_generation") {
+          lastError = err;
+          repairHint =
+            "Your previous reply was not valid JSON. Reply with a single, complete " +
+            "JSON object and nothing else -- no prose before or after it, no code fences.";
+          continue;
+        }
+
         break;
       }
     }

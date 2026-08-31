@@ -19,7 +19,15 @@ const LlmCallSchema = new Schema(
     fellBack: { type: Boolean, default: false },
     reason: {
       type: String,
-      enum: ["rate_limit", "request_too_large", "server_error", "timeout", "schema_invalid", "none"],
+      enum: [
+        "rate_limit",
+        "request_too_large",
+        "invalid_generation",
+        "server_error",
+        "timeout",
+        "schema_invalid",
+        "none",
+      ],
       default: "none",
     },
     /**

@@ -25,7 +25,13 @@ export type CompletionResult = {
 export class ProviderError extends Error {
   constructor(
     message: string,
-    readonly reason: "rate_limit" | "request_too_large" | "server_error" | "timeout" | "unknown",
+    readonly reason:
+      | "rate_limit"
+      | "request_too_large"
+      | "invalid_generation"
+      | "server_error"
+      | "timeout"
+      | "unknown",
     readonly status?: number,
     /** How long the provider asked us to wait, when it says. */
     readonly retryAfterMs?: number
@@ -60,6 +66,11 @@ function classify(status: number): ProviderError["reason"] {
   // tier's per-minute token budget. Recording it as a server error hid the real
   // cause behind an identical-looking failure, so it gets its own reason.
   if (status === 413) return "request_too_large";
+  // Groq answers 400 "Failed to validate JSON" when the model's own output does
+  // not parse. That is a bad generation, not a broken request -- asking the same
+  // provider again usually works, whereas escalating burns the fallback on a
+  // problem it has no better chance of avoiding.
+  if (status === 400) return "invalid_generation";
   if (status >= 500) return "server_error";
   return "unknown";
 }

@@ -123,29 +123,19 @@ async function main() {
       await page.waitForSelector("text=Sign in");
     });
 
-    // Two factors: the password first, then the emailed code. Registering also
-    // proves the account does not get a session until the code is verified.
+    // With REQUIRE_EMAIL_CODE off, the password alone establishes the session,
+    // so registration lands straight on onboarding with no code step.
     await step("register (email + password)", async () => {
       await page.click("text=Create an account");
       await page.fill('input[type="email"]', EMAIL);
       await page.fill('input[type="password"]', PASSWORD);
       await page.click('button[type="submit"]');
-      await page.waitForSelector("text=Check your email", { timeout: 30_000 });
+      await page.waitForURL("**/onboarding", { timeout: 60_000 });
     });
 
-    await step("no session before the code", async () => {
+    await step("session established", async () => {
       const res = await page.request.get(`${API}/api/auth/me`);
-      if (res.status() !== 401) {
-        throw new Error(`password alone issued a session (/auth/me returned ${res.status()})`);
-      }
-    });
-
-    const code = await recoverCode(db);
-
-    await step("verify code -> session", async () => {
-      await page.fill('input[inputmode="numeric"]', code);
-      await page.click('button[type="submit"]');
-      await page.waitForURL("**/onboarding", { timeout: 30_000 });
+      if (res.status() !== 200) throw new Error(`/auth/me returned ${res.status()}, expected a session`);
     });
 
     await step("onboarding (4 questions)", async () => {
