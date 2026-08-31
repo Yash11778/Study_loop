@@ -30,7 +30,19 @@ const schema = z.object({
   CRON_SECRET: z.string().optional(),
 });
 
-const parsed = schema.safeParse(process.env);
+/**
+ * Treat an empty variable as absent.
+ *
+ * Hosting dashboards store a field you left blank as "", not as nothing -- and
+ * Zod's .default() only fires on undefined, so an empty APP_URL skipped its
+ * default and then failed .url(), taking the whole boot down over a setting the
+ * operator had deliberately left for later.
+ */
+const withoutEmpty = Object.fromEntries(
+  Object.entries(process.env).filter(([, value]) => value !== "")
+);
+
+const parsed = schema.safeParse(withoutEmpty);
 
 if (!parsed.success) {
   const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`);
