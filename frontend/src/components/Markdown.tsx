@@ -19,7 +19,17 @@ function inline(text: string, keyPrefix: string): ReactNode[] {
    * operators vanished. Occasional literal asterisks around a word are a far
    * smaller problem than mangled formulae.
    */
-  const pattern = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+  /**
+   * Bold, inline code, and emphasis -- but emphasis only where an asterisk
+   * cannot be multiplication.
+   *
+   * These notes write formulae in plain text, so "F = G*m1*m2/r^2" is full of
+   * asterisks that mean multiply. A naive single-asterisk rule rewrote the
+   * physics: the middle of the equation became italics and the operators
+   * vanished. The opening asterisk here must follow a space, a bracket or the
+   * start of the line, which "G*m1" never does, while "*W*" always does.
+   */
+  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|(?<=^|[\s(])\*[A-Za-z][^*\n]{0,40}\*(?=[\s.,;:)]|$))/g;
   let last = 0;
   let match: RegExpExecArray | null;
   let i = 0;
@@ -30,6 +40,8 @@ function inline(text: string, keyPrefix: string): ReactNode[] {
 
     if (token.startsWith("**")) {
       nodes.push(<strong key={`${keyPrefix}-b${i}`} className="font-semibold text-ink">{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith("*")) {
+      nodes.push(<em key={`${keyPrefix}-i${i}`}>{token.slice(1, -1)}</em>);
     } else {
       nodes.push(
         <code key={`${keyPrefix}-c${i}`} className="rounded border border-line bg-sunk px-1 py-0.5 font-mono text-[0.85em]">
@@ -53,6 +65,13 @@ export function Markdown({ children }: { children: string }) {
       {blocks.map((block, i) => {
         const key = `b${i}`;
 
+        // Four or more hashes render at the same level as three; the notes do
+        // not nest deeper than that, and "#### Why Work Is a Scalar" was
+        // otherwise printed with its hashes intact.
+        if (/^#{4,}\s/.test(block)) {
+          const text = block.replace(/^#{4,}\s+/, "");
+          return <h4 key={key} className="mt-5 font-display text-[15px] font-bold text-ink">{inline(text, key)}</h4>;
+        }
         if (block.startsWith("### ")) {
           return <h3 key={key} className="mt-6 font-display text-base font-bold text-ink">{inline(block.slice(4), key)}</h3>;
         }

@@ -208,6 +208,13 @@ async function main() {
       await page.waitForSelector("text=Recall,text=Apply,text=Analyse", { timeout: 30_000 }).catch(() => {});
     });
 
+    await step("quiz has the full 10 questions", async () => {
+      const count = await page.locator('main button:has(span:text-matches("^[A-D]$"))').count();
+      // Four options per question, one question on screen at a time.
+      const total = await page.evaluate(() => document.querySelectorAll("[class*=flex-1][class*=rounded-full]").length);
+      if (total < 10) throw new Error(`quiz has ${total} questions, expected 10`);
+    });
+
     await step("answer 10 questions", async () => {
       for (let i = 0; i < 10; i++) {
         await page.locator('main button:has(span:text-matches("^[A-D]$"))').first().click();

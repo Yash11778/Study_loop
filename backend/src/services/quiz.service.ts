@@ -32,7 +32,19 @@ const generatedSchema = z.object({
         difficulty: z.enum(DIFFICULTIES),
       })
     )
-    .min(1),
+    /**
+     * At least the full set; the extras are sliced off below.
+     *
+     * This was min(1), so a model returning three questions produced a
+     * three-question quiz: valid, silently wrong, and testing two of the eight
+     * concepts the blueprint had weighted. A short reply is now a schema
+     * failure, which the gateway already retries with a repair hint.
+     *
+     * Deliberately not length(QUIZ_LENGTH): rejecting eleven questions is
+     * pointless when the eleventh is simply discarded, and that strictness
+     * tripled generation time by forcing retries over a harmless overshoot.
+     */
+    .min(QUIZ_LENGTH),
 });
 
 /**
@@ -139,6 +151,15 @@ export async function createQuiz(sessionId: string, userId: Types.ObjectId): Pro
   // The model can drift off the plan; keep only questions on real concepts.
   const validSlugs = new Set(note.concepts.map((c) => c.slug));
   const questions = data.questions.filter((q) => validSlugs.has(q.conceptSlug)).slice(0, QUIZ_LENGTH);
+
+  // Filtering can still shorten the set if the model invents a concept slug.
+  // Worth knowing about: it means the prompt and the note have drifted apart.
+  if (questions.length < QUIZ_LENGTH) {
+    logger.warn(
+      { asked: QUIZ_LENGTH, kept: questions.length, dropped: data.questions.length - questions.length },
+      "quiz came back short after filtering unknown concepts"
+    );
+  }
 
   if (questions.length === 0) {
     await Quiz.create({ userId, sessionId: session._id, noteId: note._id, blueprint, status: "failed" });
