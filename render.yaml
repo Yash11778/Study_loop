@@ -1,7 +1,7 @@
 # Render blueprint for the API.
 #
-# If your git repository root is the folder ABOVE this one, set the service's
-# "Root Directory" to `project` in the Render dashboard so these paths resolve.
+# The repository root IS the npm workspace root (backend/, frontend/, shared/),
+# so leave Render's "Root Directory" blank.
 services:
   - type: web
     name: study-loop-api

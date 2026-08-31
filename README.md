@@ -160,8 +160,8 @@ URL.
 
 ### 1. Render (API)
 
-Blueprint at `render.yaml`. If your git root is the folder *above* `project/`,
-set the service's **Root Directory** to `project`.
+Blueprint at `render.yaml`. The repository root is the npm workspace root, so
+leave **Root Directory** blank.
 
 Set the `sync: false` variables in the dashboard:
 
@@ -180,8 +180,11 @@ static outbound IP, so an allowlist of specific addresses will not work.
 
 ### 2. Vercel (web)
 
-Set **Root Directory** to `project`. `vercel.json` supplies the build command
-and the hourly cron. Environment variables:
+Leave **Root Directory** blank — it must be the workspace root, not `frontend/`,
+or npm cannot resolve the `@study-loop/shared` workspace and the build fails.
+`vercel.json` supplies the build command and the cron.
+
+The cron runs daily: Vercel's Hobby plan rejects anything more frequent. Environment variables:
 
 | Variable | Value |
 | --- | --- |
